@@ -77,14 +77,16 @@ inv.hsin <- function(x){
 }
 
 hellinger_trans <- function(x){
-  sqrt(x/rowSums(x))
+  rs <- rowSums(x)
+  rs[rs == 0] <- 1
+  sqrt(x/rs)
 }
 
-d <- read_csv("raw_data/data_2022.csv") # Reader data
+d <- read_csv("raw_data/data_2022.csv") # Read data
 names(d)[grepl("B...",names(d))] <- c("B1", "B2") # Rename problematic column
 d$B1[is.na(d$B1)] <- 0 # Replace NA with 0
 
-# Apparently these are the morpho species that are considered goog mites
+# Apparently these are the morpho species that were considered good mites
 all.equal(d$total.good.mites,
           d$RS + d$LB + d$OB + d$LL + d$LC + d$CLB + d$PR + d$BY + d$nymph+ d$B1 + d$B2 + d$SP + d$MISC)
 
@@ -97,14 +99,17 @@ d$total.good.mites.adults <- d$total.good.mites - d$nymph
 
 # Species considered in the composition analysis
 species_col <- c("RS", "LB", "OB", "LL", "B", "LC", "CLB", "SP", "MISC", "BY", "PR")
-community_mat <- (cbind(d[species_col],"dummy" = 1)) # Add a dummy species to avoid issue with 0 mites
+community_mat <- d[species_col]
 pca.out <- rda(hellinger_trans(community_mat) ~ 
                    Condition(tree), 
                  data = d) # Simple PCA, keeping track of the tree id 
 screeplot(pca.out) # Looks like it is enough to grab the first two PCs
 d <- d %>% 
   mutate(PC1 = scores(pca.out)$sites[,1], 
-         PC2 = scores(pca.out)$sites[,2]) # Add them to the data as an index of community composition
+         PC2 = scores(pca.out)$sites[,2], 
+         shannon.H = vegan::diversity(community_mat)) # Add them to the data as an index of community composition
+
+
 
 
 
@@ -146,7 +151,7 @@ m1 <- glmmTMB(
 
 
 # eriophyid presence is affected total good mites and not by treatment
-# inv.hsin is the inverse hyperbolic sine transformation. It is similar to the log transformation, but better than log because it can deal with 0. Changing the transformation to log(x+1) does not change the result
+# inv.hsin is the inverse hyperbolic sine transformation. It is similar to the log transformation, but better than log because it can deal with 0 (Burbidge et al. 1988). Changing the transformation to log(x+1) does not change the result 
 m2 <- glmmTMB(
   eriophyid.pres ~ treatment + factor(day.of.year) + 
     (1|tree)  + ar1(0 + exp.round | tree), 
@@ -217,6 +222,17 @@ m4.1 <- glmmTMB(
 check_model(m4)
 plot_model(m4, type = "pred", terms = c("dom", "treatment"))
 
+# Mite diversity is increased by domatia count but not by treatment
+m5 <- glmmTMB(
+  shannon.H ~ inv.hsin(dom) + treatment + factor(day.of.year) +  
+    (1|tree) + ar1(0 + exp.round | tree), 
+  family = tweedie(),
+  data = d,
+  control=glmmTMBControl(optimizer=optim,
+                         optArgs=list(method="BFGS"))
+);summary(m5)
+
+
 
 #Here, I fitted a tb-partial RDA to analyze the community position 
 #the hellinger transformation is basically a square root transformation of the relative species abundance for each tree. 
@@ -239,4 +255,17 @@ get_biplot(rda.out,choices = c(1,2), scaling = 2,
 get_biplot(rda.out,choices = c(1,3), scaling = 2, 
            display =  c("sites", "species", "biplot"), 
            d$treatment) + labs(title = "tb-partial-RDA")
+
+
+
+
+
+
+
+
+
+
+
+
+
 
