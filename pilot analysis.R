@@ -252,7 +252,7 @@ get_biplot(rda.out,choices = c(1,2), scaling = 2,
            display =  c("sites", "species", "biplot"), 
            d$treatment) + labs(title = "tb-partial-RDA")
 
-get_biplot(rda.out,choices = c(1,3), scaling = 2, 
+get_biplot(rda.out,choices = c(2,3), scaling = 2, 
            display =  c("sites", "species", "biplot"), 
            d$treatment) + labs(title = "tb-partial-RDA")
 
