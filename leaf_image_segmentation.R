@@ -75,3 +75,6 @@ split_leaves(dir.path = "images/marcescence_project_2022_May/",
 
 split_leaves(dir.path = "images/marcescence_project_2022_June/",
              save.dir.path = "images/2022_June_isolate/")
+
+split_leaves(dir.path = "images/marcescence_project_2022_August/",
+             save.dir.path = "images/2022_August_isolate/")
