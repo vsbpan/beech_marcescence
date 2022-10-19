@@ -1,4 +1,5 @@
-
+library(tidyverse)
+library(pliman)
 file.dir <-"images/2022_May_isolate/"
 file.names <-list.files(file.dir,pattern = ".png")
 
