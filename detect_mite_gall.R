@@ -15,5 +15,7 @@ for (i in seq_along(file.names)){
 }
 
 
+d<-do.call("rbind",out.list)
 
 
+log(d$px+1) %>% hist()
