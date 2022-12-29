@@ -53,7 +53,7 @@ august_d <- read_painted_leaves(file.dir = "images/segmented_processed/2022_Augu
 
 
 d <- rbind(may_d,june_d,august_d)
-
+d$gall_mm2[d$gall_mm2/d$leaf_area_mm2 < 0.001] <- 0
 d$month <- gsub(".*2022_|_isolate.*","",d$img_path)
 d$leaf <- as.numeric(gsub(".*_leaf|.png","",d$img_path))
 d$tree <- as.numeric(gsub(".*tree|_.*","",d$img_path))
@@ -69,6 +69,8 @@ d$prop_herb <- ifelse(d$prop_herb < 0.005,
                      0, 
                      d$prop_herb)
 
+
+d <- read_csv("cleaned_data/beech_leaf_scan_read.csv")
 d2 <- read_csv("raw_data/data_2022.csv")
 d3 <- read_csv("raw_data/tree coordinates.csv")
 
@@ -86,3 +88,14 @@ d.full <- d.full %>%
 
 
 write_csv(d.full,"beech_marcescence_cleaned.csv")
+write_csv(d,"beech_leaf_scan_read.csv")
+
+
+# 
+# d.disagree <- d.full %>% 
+#   mutate(gall = ifelse(gall_mm2 > 0, 1, 0)) %>% 
+#   filter(gall != eriophyid.pres) %>% 
+#   select(field.date,tree,leaf,gall_mm2,leaf_area_mm2,eriophyid.pres)
+
+
+
