@@ -16,7 +16,7 @@ output:
 
 ```{r, include = FALSE}
 knitr::opts_chunk$set(fig.align = "center", comment = NA, eval = TRUE, warning = FALSE, message = FALSE)
-modelonly <- FALSE
+modelonly <- TRUE
 ```
 
 
@@ -38,6 +38,8 @@ library(sjPlot)
 library(vegan)
 library(ggpubr)
 library(herbivar) # https://github.com/vsbpan/herbivar
+#library(piecewiseSEM)
+#library(DHARMa)
 ```
 
 
@@ -60,7 +62,7 @@ plot(img)
 
 Then, we use paint to manually pick out the background, the intact leaf area, the missing leaf area, and the mite galls: 
 
-```{r}
+```{r, eval = modelonly}
 img <- load.image("images/segmented_processed/2022_May_isolate/tree1_20220517_leaf3.png") %>% 
   thin(5)
 plot(img)
@@ -353,12 +355,10 @@ My understanding is that we sort of have three main questions: \
 (3) Does marcescence or domatia affect the herbivory or pathogen risk of beech trees, possibly via mite bodyguards? \
 
 \
-\
 Because we are interested in a community of mite bodyguards, answering question (1) in its vague sense sort of include looking at three ecologically important features of any assemblage of species: the density, diversity, and community composition. The prior two features involve simple GLMMs, whereas the latter involves performing constrained ordination. \
 
 \
-
-After analyzing the mite community, we move on to looking at important biological outcomes (gall area, chewing herbivory, fungal count) that may have responded to treatment or domatia count. In general, for each model, we include treatment and log(domatia count) along with other bare minimum model structures. We have both treatment and log(domatia count) in the same model mostly to reduce the number of models that we have to keep track of. log(domatia count) and treatment seem to not be that correlated so having both in the same model doesn't affect the model coefficients that much. 
+After analyzing the mite community, we move on to looking at important biological outcomes (gall area, chewing herbivory, fungal count) that may have responded to treatment or domatia count. In general, for each model, we include treatment and log(domatia count) along with other bare minimum model structures. We have both treatment and log(domatia count) in the same model mostly to reduce the number of models that we have to keep track of. log(domatia count) and treatment seem to not be that correlated so having both in the same model doesn't affect the model coefficients that much. \
 
 The bare minimum model structures include the following: \
 
@@ -373,10 +373,10 @@ $$\text{mite count} \leftarrow \text{leaf area} \rightarrow \text{gall area}$$
 
 \
 
-I did not include leaf position or space into the models because preliminary data exploration indicate that they are probably not important. In cases where there is quite a bit of spatial structure in the variable (e.g. mite counts), the results don't change qualitatively (or the spatial version of the method, if it exits, is so very very annoying) so again, we'll just ignore space. I also tested some interactions here and there and they don't seem to be supported, so I have mostly showed you results of models without any interaction. Finally, because our missing leaf scans are probably missing completely at random, the missingness would not bias the estimates, so I don't attempt to do any imputation. 
+I did not include leaf position or space into the models because preliminary data explorations indicate that they are probably not important. In cases where there is quite a bit of spatial structure in the variable (e.g. mite counts), the results don't change qualitatively (or the spatial version of the method, if it exits, is so very very annoying) so again, we'll just ignore space. I also tested some interactions here and there and they don't seem to be supported, so I have mostly showed you results of models without any interaction. Finally, because our missing leaf scans are probably missing completely at random, the missingness would not bias the estimates, so I don't attempt to do any imputation. 
 
 \
-After that we put everything together into a structural equation model where we test the specific structural hypotheses we have from question (2 and 3). It is important that we start with a reasonable meta-model structure and look at the size of the coefficients rather than performing model selection via AIC as has been advocated by some in the past. AIC is irrelevant to causal inference (Arif and MacNei 2022). I drew a DAG below that I think captures what is going out outside. Notice that we have to adjust for exp.round (time of year) and leaf area to get unbiased estimate of the effect of domatia count. 
+After that we put everything together into a structural equation model where we test the specific structural hypotheses we have from question (2 and 3). It is important that we start with a reasonable meta-model structure and look at the size of the coefficients rather than performing model selection via AIC as has been advocated by some in the past. AIC is irrelevant to causal inference (Arif and MacNei 2022). I drew a DAG below that I think captures what is going out outside. Notice that we have to adjust for exp.round (time of year) and leaf area to get unbiased estimate of the effect of domatia count. The double arrows in there indicate correlated errors. 
 \
 ```{r}
 knitr::include_graphics("graphs/a_priori_DAG.PNG")
@@ -414,7 +414,7 @@ den.m1 <- readRDS("RDS_files/den.m1.rds") # Takes too long to fit. Model code be
 #   family = nbinom2(link = "log"),
 #   data = d.gathered
 #   ); summary(den.m1)
-
+summary(den.m1)
 
 ```
 
@@ -577,7 +577,9 @@ check_collinearity(ga.m1)
 
 ### Plot
 ```{r, eval = modelonly}
-plot_model(ga.m1, type = "pred", terms = c("exp.round"), show.data = TRUE, jitter = TRUE)
+plot_model(ga.m1, type = "pred", terms = c("exp.round"), show.data = TRUE, jitter = TRUE) + 
+  labs(title = "") + 
+  theme_bw(base_size = 15)
 ```
 
 
@@ -651,6 +653,8 @@ r2(herb.m1, tolerance = 10^-10)
 
 
 ## Fungal count {.tabset}
+**key takeaways**: Only time of year affected fungal count.  
+
 ### Model 
 ```{r}
 fg.m1 <- glmmTMB(
@@ -668,17 +672,33 @@ fg.m1 <- glmmTMB(
 
 
 ### Diagnostics
+
+**So the diagnostics don't look that great. The quasi-Poisson distribution seems to be a better choice as the conditional distribution (yielding no issue in the diagnostics), but since the results don't change qualitatively, we will only consider the type II negative binomial model for the sake of simplicity.**
+
 ```{r, eval = modelonly}
 DHARMa::simulateResiduals(fg.m1) %>% plot()
 check_collinearity(fg.m1)
 ```
 
 ### Plot
+```{r, eval = modelonly}
+plot_model(fg.m1, type = "pred", terms = c("exp.round"), show.data = TRUE, jitter = TRUE) + 
+  labs(title = "") + 
+  theme_bw(base_size = 15)
+```
+
 
 ### Misc stats
+**random effect variance estimate many be unreliable**
+```{r}
+r2(fg.m1, tolerance = 10^-10)
+```
 
 
-# Structural Equation Model
+# Structural Equation Model {.tabset}
+
+**key takeaways**: Treatment increased chewing herbivory not through any variables measured in the study. Domatia density increased mite density, which reduced fungal count. Mite community composition also affected fungal count, but nothing predicted mite community composition. Nothing explained gall area. 
+
 ## Extract mite density score
 
 Here, I use the previous mite density GLMM we fitted to generate a predicted mite density propensity score. We are interested in some idea of mite 'density' affecting our response variable of interest, but we have many morphospecies of mites and it is preferable to not treat them identically. We also don't want to include each morphospecies in the model as a predictor-- that is too many variables. A solution is to generate a latent variable that takes into account that some morphospecies may be more abundant than others. We do this by taking the predicted average global mite density from the GLMM we fitted. It is not species specific because we don't allow the prediction to include species random effects. 
@@ -695,19 +715,134 @@ d <- d.gathered %>%
                                        type = "link")) %>% # Prediction on link scale is better behaved
   group_by(exp.round, tree, leaf) %>% 
   summarise(pred_density_score = mean(pred_density_score)) %>% # Collapse score to each leaf
+  ungroup() %>% 
   right_join(d, by = c("exp.round", "leaf","tree")) %>%  # Bind to data frame for analysis
-  mutate(pred_density_score = scale(pred_density_score)) # Z score transform
+  mutate(pred_density_score = as.numeric(scale(pred_density_score)))  # Z score transform
 ```
 
+
+## List of models
+```{r}
+m1 <- glmmTMB(pred_density_score ~ 
+                leaf_area_mm2_log.scale + 
+                treatment + 
+                dom_log.scale + 
+                exp.round + 
+                (1| tree), 
+              family = gaussian, 
+              control=glmmTMBControl(optimizer=optim,
+                                     optArgs=list(method="BFGS")),
+              data = d); summary(m1)
+
+m2 <- glmmTMB(PC1.scale ~ 
+                leaf_area_mm2_log.scale + 
+                treatment + 
+                dom_log.scale + 
+                exp.round + 
+                (1| tree) + 
+                ar1(0 + exp.round | tree), 
+              family = gaussian, 
+              data = d); summary(m2)
+
+
+m3 <- glmmTMB(PC2.scale ~ 
+                leaf_area_mm2_log.scale + 
+                treatment + 
+                dom_log.scale + 
+                exp.round + 
+                (1| tree) + 
+                ar1(0 + exp.round | tree), 
+              family = gaussian(), 
+              data = d
+              ); summary(m3)
+
+m4 <- glmmTMB(dom_log.scale ~ 
+                leaf_area_mm2_log.scale + 
+                exp.round + 
+                (1| tree) + 
+                ar1(0 + exp.round | tree), 
+              family = gaussian(), 
+              data = d
+              ); summary(m4)
+
+m5 <- glmmTMB(gall_mm2 ~ 
+                PC1.scale + 
+                PC2.scale + 
+                pred_density_score + 
+                leaf_area_mm2_log.scale + 
+                treatment + 
+                dom_log.scale + 
+                exp.round + 
+                (1| tree) + 
+                ar1(0 + exp.round | tree), 
+              family = tweedie(), 
+              control=glmmTMBControl(optimizer=optim,
+                                     optArgs=list(method="BFGS")),
+              data = d); summary(m5)
+
+m6 <- glmmTMB(herb_mm2 ~ 
+                PC1.scale + 
+                PC2.scale + 
+                pred_density_score + 
+                leaf_area_mm2_log.scale + 
+                treatment + 
+                dom_log.scale + 
+                exp.round + 
+                (1| tree) + 
+                ar1(0 + exp.round | tree), 
+              family = tweedie(), 
+              data = d); summary(m6)
+
+m7 <- glmmTMB(fungal.count ~ 
+                PC1.scale + 
+                PC2.scale + 
+                pred_density_score + 
+                leaf_area_mm2_log.scale + 
+                treatment + 
+                dom_log.scale + 
+                exp.round + 
+                (1| tree) + 
+                ar1(0 + exp.round | tree), 
+              family = nbinom2(), 
+              data = d); summary(m7)
+```
+
+
+
+## d-separation test
+```{r}
+# Using old version of piecewiseSEM that supports glmmTMB
+#devtools::install_version("piecewiseSEM", version = "1.2.1", repos = "http://cran.us.r-project.org")
+mod.list <- list(m1, m2, m3, m4, m5, m6, m7)
+psem.out <- piecewiseSEM::sem.fit(mod.list, 
+                                  corr.errors = list("PC2.scale ~~ PC1.scale", 
+                                                     "PC1.scale ~~ pred_density_score", 
+                                                     "PC2.scale ~~ pred_density_score"), 
+                                  data = d, 
+                                  .progressBar = FALSE)
+psem.out # Looks like there are no missing paths
+```
+
+
+## SEM coefficeints
+
+**The coefficients still need to be standardized in some cases**
+```{r}
+piecewiseSEM::sem.coefs(modelList = mod.list, 
+          data = d)
+```
+
+## SEM plot
 
 ```{r}
-
+piecewiseSEM::sem.plot(mod.list, data = d, show.nonsig = FALSE)
 ```
-
 
 
 # References
-Arif, S., and A. MacNeil. 2022. Predictive models aren’t for causal inference. Ecology Letters n/a.
+Arif, S., and A. MacNeil. 2022. Predictive models aren’t for causal inference. Ecology Letters n/a.  
+/
+Karban, R. 2008. Leaf Drop in Evergreen Ceanothus velutinus as a Means of Reducing Herbivory. Ecology 89:2446–2452.
 
 
 # Session Info 

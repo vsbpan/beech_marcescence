@@ -70,145 +70,16 @@ mcfadden_r2 <- function(m1, m0, adjust = FALSE){
 
 
 
-
-d$tot
-
-ga.m3 <- glmmTMB(
-  gall_mm2 ~ 
-    treatment +
-    scale(dom_log) +
-    scale(leaf_area_mm2_log) + 
-    pred_density_score + 
-    PC1 +
-    PC2 + 
-    exp.round + 
-    (1|tree)  + 
-    ar1(0 + exp.round | tree), 
-  family = ziGamma(link = "log"),
-  ziformula = ~ .,
-  data = d,
+m2 <- glmmTMB(
+  log(leaf_area_mm2 )~ 
+    treatment + 
+    factor(day.of.year) +
+    (1|tree)  + ar1(0 + exp.round | tree), 
+  family = gaussian,
+  data = d2, 
   control=glmmTMBControl(optimizer=optim,
                          optArgs=list(method="BFGS"))
-); summary(ga.m3)
-
-
-
-
-ga.m2 <- glmmTMB(
-  gall_mm2 ~ 
-    treatment +
-    scale(dom_log) +
-    scale(leaf_area_mm2_log) + 
-    pred_density_score + 
-    exp.round + 
-    (1|tree)  + 
-    ar1(0 + exp.round | tree), 
-  family = ziGamma(link = "log"),
-  ziformula = ~ .,
-  data = d,
-  control=glmmTMBControl(optimizer=optim,
-                         optArgs=list(method="BFGS"))
-); summary(ga.m2)
-
-
-
-d$pred_density_score %>% hist()
-
-herb.m2 <- glmmTMB(
-  herb_mm2 ~ 
-    treatment +
-    dom_log.scale +
-    leaf_area_mm2_log.scale + 
-    exp.round + 
-    (1|tree)  + 
-    ar1(0 + exp.round | tree), 
-  family = tweedie(link = "log"),
-  data = d
-); summary(herb.m2)
-
-
-
-d$fungal.count %>% hist()
-
-fg.m2 <- glmmTMB(
-   fungal.count~ 
-    treatment +
-    dom_log.scale +
-    leaf_area_mm2_log.scale + 
-    exp.round + 
-    (1|tree)  + 
-    ar1(0 + exp.round | tree), 
-  family = poisson(link = "log"),
-  data = d
-); summary(fg.m2)
-
-
-names(d)
-
-
-
-
-
-
-
-
-
-
-ga.m1 <- glmmTMB(
-  gall_mm2 ~ 
-    treatment +
-    dom_log.scale +
-    leaf_area_mm2_log + 
-    exp.round + 
-    (1|tree)  + 
-    ar1(0 + exp.round | tree), 
-  family = ziGamma(link = "log"),
-  ziformula = ~ .,
-  data = d %>% 
-    mutate(dom_log.scale = scale(dom_log)),
-  control=glmmTMBControl(optimizer=optim,
-                         optArgs=list(method="BFGS"))
-); summary(ga.m1)
-
-ga.m2 <- glmmTMB(
-  gall_mm2 ~ 
-    treatment +
-    scale(dom_log) +
-    scale(leaf_area_mm2_log) + 
-    exp.round + 
-    (1|tree)  + 
-    ar1(0 + exp.round | tree), 
-  family = tweedie(link = "log"),
-  data = d,
-  control=glmmTMBControl(optimizer=optim,
-                         optArgs=list(method="BFGS"))
-); summary(ga.m2)
-
-ga.m1 %>% summary()
-AIC(ga.m1, ga.m2)
-
-DHARMa::simulateResiduals(den.m1) %>% plot()
-
-
-
-
-
-herb.m2 <- glmmTMB(
-  herb_mm2 ~ 
-    treatment +
-    scale(dom_log) +
-    scale(leaf_area_mm2_log) + 
-    exp.round + 
-    (1|tree)  + 
-    ar1(0 + exp.round | tree), 
-  family = tweedie(link = "log"),
-  data = d,
-  control=glmmTMBControl(optimizer=optim,
-                         optArgs=list(method="BFGS"))
-); summary(herb.m2)
-
-
-
+); summary(m2)
 
 
 
@@ -220,81 +91,49 @@ library(brms)
 
 
 
-check_model(m1)
 
 
 
 
-d2 <- d %>% 
-  mutate(gall = ifelse(gall_mm2 > 0, 1, 0), 
-         prop_gall = gall_mm2 / leaf_area_mm2) %>% 
-  mutate(prop_gall.adj = adjust_prop(prop_gall,
-                                     nudge.method = "replace",
-                                     nudge.size = "warton_min",
-                                     trans = "identity"), 
-         herb_mm2 = leaf_area_mm2 * prop_herb)
+psem.out
 
-hist(log(d2$herb_mm2))
+devtools::install_version("piecewiseSEM", version = "1.2.1", repos = "http://cran.us.r-project.org")
 
-summary(d2$herb_mm2)
 
-m2 <- glmmTMB(
-  herb_mm2 ~ 
-    treatment +
-    factor(day.of.year) +
-    log(leaf_area_mm2) + 
-    (1|tree)  + ar1(0 + exp.round | tree), 
-  family = ziGamma(link = "log"),
-  ziformula = ~. ,
-  data = d2, 
-  control=glmmTMBControl(optimizer=optim,
-                         optArgs=list(method="BFGS"))
-); summary(m2)
+
+
+psem.out
+
+
+
+
+psem.out2 <- piecewiseSEM::sem.fit(mod.list,
+                                  data = d)
+sem.coefs(modelList = mod.list, 
+          data = d)
+
+
+
+sem.plot(mod.list, data =d)
 
 
 
 
 
-d2$herb_mm2
-
-performance(m2)
-check_model(m2)
-
-plot_model(m2,type = "pred", terms = c("treatment"))
-
-DHARMa::simulateResiduals(m2) %>% plot()
 
 
 
-?family_glmmTMB
 
 
-m3 <- glmmTMB(
-  gall_mm2 ~ 
-    treatment +
-    factor(day.of.year) +
-    asinh(total.good.mites) + 
-    PC1 + 
-    PC2 +
-    (1|tree)  + ar1(0 + exp.round | tree), 
-  family = ziGamma(link = "log"),
-  ziformula = ~. ,
-  data = d2, 
-  control=glmmTMBControl(optimizer=optim,
-                         optArgs=list(method="BFGS"))
-); summary(m3)
-
-names(d2)
 
 
-m2 <- glmmTMB(
-  log(leaf_area_mm2 )~ 
-    treatment + 
-    factor(day.of.year) +
-    (1|tree)  + ar1(0 + exp.round | tree), 
-  family = gaussian,
-  data = d2, 
-  control=glmmTMBControl(optimizer=optim,
-                         optArgs=list(method="BFGS"))
-); summary(m2)
+
+
+
+
+
+
+
+
+
 
